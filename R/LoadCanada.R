@@ -26,37 +26,41 @@ LoadCanada <- function() {
   # Berry I, Soucy J-PR, Tuite A, Fisman D. Open access epidemiologic data and an interactive dashboard to monitor the COVID-19 outbreak in Canada. CMAJ. 2020 Apr 14;192(15):E420. doi:  https://doi.org/10.1503/cmaj.75262.
 
 
-  CANADADATA <- vroom::vroom("https://raw.githubusercontent.com/ccodwg/Covid19Canada/master/timeseries_hr/cases_timeseries_hr.csv")
-
-  # pop_canada<- read.csv("https://raw.githubusercontent.com/ishaberry/Covid19Canada/master/other/hr_map.csv",encoding="UTF-8")#contains pop and health region ID codes
+  #CANADADATA <- vroom::vroom("https://raw.githubusercontent.com/ccodwg/Covid19Canada/master/timeseries_hr/cases_timeseries_hr.csv")
+  CANADADATA <- vroom::vroom("https://raw.githubusercontent.com/ccodwg/CovidTimelineCanada/main/data/hr/cases_hr.csv")   
+  pop_canada<- read.csv("https://raw.githubusercontent.com/ishaberry/Covid19Canada/master/other/hr_map.csv",encoding="UTF-8")#contains pop and health region ID codes
 
   # shrink this data file
-  DATES <- as.Date(CANADADATA$date_report, format = "%d-%m-%Y")
+  DATES <- as.Date(CANADADATA$date, format = "%d-%m-%Y")
   DatIND <- which(DATES < "2021-10-01")
   CANDATASMALLER <- CANADADATA[-DatIND, ]
 
   # Assemble the data required to calculate risk scores and match health region ID's
   CANADARISK <- c()
   count <- 1
-  CPro <- unique(pop_canada$province)
-  for (aa in 1:length(CPro)) {
+  CPro <- unique(pop_canada$province_short) # all the provinces (two letter codes)
+  for (aa in 1:length(CPro)) { # loop within a province
     # cat("aa:",aa,"\n")
-    subsetCANL <- pop_canada[pop_canada$province == CPro[aa], ]
-    subsetCAND <- CANDATASMALLER[CANDATASMALLER$province == CPro[aa], ]
-    CHR <- unique(subsetCANL$health_region)
-    for (bb in 1:length(CHR)) {
+    subsetCANL <- pop_canada[pop_canada$province_short == CPro[aa], ] # all health regions 
+    subsetCAND <- CANDATASMALLER[CANDATASMALLER$region == CPro[aa], ] # all health region-dates in data
+    CHR <- unique(pop_canada$HR_UID[pop_canada$province_short == CPro[aa]]) # unique health region ids
+    # get the name of the province
+    this_province <- pop_canada$province[pop_canada$province_short == CPro[aa]][1]
+    for (bb in 1:length(CHR)) { # loop within a health region
       # cat("bb:",bb,"\n")
-      subset2CAND <- subsetCAND[subsetCAND$health_region == CHR[bb], ]
-      subset2CANL <- subsetCANL[subsetCANL$health_region == CHR[bb], ]
-      CANDATES <- as.Date(subset2CAND$date_report, format = "%d-%m-%Y")
+      subset2CAND <- subsetCAND[subsetCAND$sub_region_1 == CHR[bb], ] #
+      subset2CANL <- subsetCANL[subsetCANL$HR_UID == CHR[bb], ]
+      # get the name of the health region 
+      this_health_region <- pop_canada$health_region[pop_canada$HR_UID == CHR[bb]]
+      CANDATES <- as.Date(subset2CAND$date, format = "%Y-%m-%d")
 
       MD <- max(CANDATES)
-      MC <- subset2CAND$cumulative_cases[which(CANDATES == MD)]
+      MC <- subset2CAND$value[which(CANDATES == MD)]
       LD <- MD - 14
-      LC <- subset2CAND$cumulative_cases[which(CANDATES == LD)]
+      LC <- subset2CAND$value[which(CANDATES == LD)]
 
-      CANADARISK$province[count] <- CPro[aa]
-      CANADARISK$health_region[count] <- CHR[bb]
+      CANADARISK$province[count] <- this_province
+      CANADARISK$health_region[count] <- this_health_region
       CANADARISK$HR_UID[count] <- as.character(subset2CANL$HR_UID)
       CANADARISK$pop[count] <- subset2CANL$pop
       CANADARISK$province_full[count] <- subset2CANL$province_full

@@ -27,15 +27,15 @@ LoadFrance <- function() {
   
   #sp-dep-day-2022-05-25-19h01.csv ( I think this is daily data), from here 
   # https://www.data.gouv.fr/fr/datasets/donnees-de-laboratoires-pour-le-depistage-a-compter-du-18-05-2022-si-dep/#resources)
-  data <- vroom::vroom("https://www.data.gouv.fr/fr/datasets/r/426bab53-e3f5-4c6a-9d54-dba4442b3dbc") %>% 
+  data <- vroom::vroom("https://www.data.gouv.fr/fr/datasets/r/426bab53-e3f5-4c6a-9d54-dba4442b3dbc", col_types=c("cDccccccc")) %>% 
       dplyr::filter(cl_age90 == 0) %>%
-      dplyr::select(code = dep, date = jour, cases = P) %>%
+      dplyr::select(code = dep, date = jour, cases = P, Population = pop) %>%
       dplyr::mutate(date = as.Date(date)) %>%
       dplyr::filter(!is.na(cases))
   
   # replace ',' with . and convert to numeric
   data$cases<-as.numeric(gsub(",", ".",data$cases))
-  
+  data$Population<-as.numeric(gsub(",", ".",data$Population))
   # old link
   #data <- vroom::vroom("https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675") %>%
     #dplyr::filter(cl_age90 == 0) %>%
@@ -60,7 +60,8 @@ LoadFrance <- function() {
     latestDate <- department$date[length(department$date)]
     pastDate <- latestDate - 14
     difference <- (sum(department[1:which(department$date == latestDate), "cases"]) - sum(department[1:which(department$date == pastDate), "cases"])) / 14 * 10
-    vec <- data.frame(code = depList[code], date = latestDate, n = difference)
+    Population <- department$Population[1]
+    vec <- data.frame(code = depList[code], date = latestDate, n = difference, pop = Population)
     return(vec)
   }
 
@@ -70,7 +71,7 @@ LoadFrance <- function() {
     vec <- sortFunc(i)
     frenchTable <- rbind(frenchTable, vec)
   }
-  frenchdf <- dplyr::inner_join(frenchTable, pop_france, by = "code")
+  frenchdf <- frenchTable
   FranceMap <- dplyr::inner_join(geomFrance, frenchdf, by = c("micro_code" = "code"))
   FranceMap$RegionName <- paste(FranceMap$micro_name, FranceMap$country_name, sep = ", ")
   FranceMap$Country <- FranceMap$country_name

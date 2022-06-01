@@ -26,7 +26,7 @@ LoadUS <- function() {
   # US 2019 population estimate data comes from the US Census: https://www.census.gov/data/tables/time-series/demo/popest/2010s-state-total.html
 
   # cases from NYT
-  dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
+  dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties-recent.csv"
   # data <- read.csv(dataurl, stringsAsFactors = FALSE) %>% mutate(date = as_date(date))
   data <- vroom::vroom(dataurl, col_types = c(date = "D"))
   # geography
