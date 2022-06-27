@@ -1,7 +1,12 @@
 # get_excluded_countries.R
 # This script generates a list of the countries to exclude in the 
 # generate_map_assets function in fct_fgb.R in the c19-app-ppi repo
-get_excluded_countries<- function() {
+
+# Set thresholds for including countries (same as NGS mapping)
+daily_tests_thres <- 0.1 # 0.5
+TPR_thres<- 50 # 20
+FIND_REPORT_FLAG<-TRUE
+get_excluded_countries<- function(daily_tests_thres, TPR_thres, FIND_REPORT_FLAG) {
     library(tidyverse) # Data wrangling
     library(tibble) # Data wrangling
     library(janitor) # Column naming
@@ -20,7 +25,7 @@ get_excluded_countries<- function() {
     
     
     ALL_DATA_PATH<- url("https://raw.githubusercontent.com/dsbbfinddx/FINDCov19TrackerData/master/processed/data_all.csv")
-    
+    ECONOMY_PATH<- url('https://raw.githubusercontent.com/PandemicPreventionInstitute/NGS-Capacity-map/main/data/additional_sources/WB_class_data.csv')
     
     find_raw <- read.csv(ALL_DATA_PATH) %>% clean_names()
     
@@ -88,26 +93,73 @@ get_excluded_countries<- function() {
     # Combine two datasets (test reporting and )
     find_testing_metrics<- left_join(find_testing_last_year, find_test_update_date, by = "code")
     
-    # Set thresholds for including countries (same as NGS mapping)
-    daily_tests_thres <- 0.5
-    TPR_thres<- 20 
+    
     
     find_testing_metrics <- find_testing_metrics %>% 
         mutate(exclude_country = 
                    case_when(
-                       rept_tests_within_last_6_months == FALSE ~ TRUE,
+                       (FIND_REPORT_FLAG == TRUE & rept_tests_within_last_6_months == FALSE) ~ TRUE,
                        tpr >= TPR_thres & avg_daily_tests_per_1000_last_year_smoothed <= daily_tests_thres ~ TRUE, #bottom right
                        tpr >= TPR_thres & avg_daily_tests_per_1000_last_year_smoothed > daily_tests_thres ~ TRUE, # upper right
                        tpr < TPR_thres & avg_daily_tests_per_1000_last_year_smoothed <= daily_tests_thres ~ TRUE, # bottom left
                        tpr < TPR_thres & avg_daily_tests_per_1000_last_year_smoothed > daily_tests_thres ~ FALSE # upper left
                    )
         )
-    countrycode(metadata$country, origin = 'country.name', destination = 'iso3c')
+  
+    
+    # add World Bank
+    world_bank_background_raw <- read_csv(ECONOMY_PATH) %>%
+        # Standardize names with this janitor function
+        clean_names()
+    # Remove buffer rows by iso3 code and select code and testing capacity columns
+    world_bank_background_clean <- world_bank_background_raw %>%
+        # Drop all columns except iso3 code and world_bank_economies
+        select('code','income_group')%>%
+        filter(code != 'x') 
+    
+    find_testing_metrics <- left_join(find_testing_metrics, world_bank_background_clean, by = "code")
+    
+    find_testing_metrics <- find_testing_metrics %>% mutate(
+        LMIC = ifelse(income_group == "Upper middle income", FALSE, TRUE)
+    )
     
     excluded_countries<- find_testing_metrics %>% filter(exclude_country == TRUE) %>%
-        mutate(country = countrycode(code, origin = 'iso3c', destination = 'country.name')) %>% 
-        pull(country)
+        mutate(country = countrycode(code, origin = 'iso3c', destination = 'country.name')) 
+    
+    unique_countries_risk_repo <- read.csv('../data/unique_countries_risk_repo.csv') %>% 
+        rename(country = x)  %>% mutate(
+            code = countrycode(country, origin = 'country.name', destination = 'iso3c')
+        ) %>% select(code) %>% pull(code)
+    
+    excluded_countries <- excluded_countries %>% filter(code %in% unique_countries_risk_repo)
+    
+    n_LMICs <- sum(excluded_countries$LMIC==TRUE)
     
     return(excluded_countries)
 }
+
+
+TPR_thres_vec<- seq(from = 20, to = 50, by = 10)
+daily_tests_thres_vec <- seq(from = 0.1, to = 0.5, by = 0.1)
+FIND_REPORT_FLAG_VEC<- c(TRUE, FALSE)
+df<-c()
+for (i in 1:length(TPR_thres_vec)){
+    TPR_thres<- TPR_thres_vec[i]
+    for(j in 1:length(daily_tests_thres_vec)){
+        daily_tests_thres<-daily_tests_thres_vec[j]
+        for(k in 1:length(FIND_REPORT_FLAG_VEC)){
+            FIND_REPORT_FLAG<-FIND_REPORT_FLAG_VEC[k]
+            n_LMICs<-get_excluded_countries(daily_tests_thres, TPR_thres,FIND_REPORT_FLAG)
+            this_df<-data.frame(n_LMICs, TPR_thres, daily_tests_thres, FIND_REPORT_FLAG)
+            df<-bind_rows(df, this_df)
+        }
+    }
+}
+
+df %>% ggplot() + geom_line(aes(x = daily_tests_thres, y = n_LMICs, group = TPR_thres, color = TPR_thres)) +
+    facet_wrap(~FIND_REPORT_FLAG) +
+    theme_bw() + xlab('Minimum daily tests per 1,000') + ylab('Number of LMICs excluded')
+
+excluded_countries_req_FIND_data<-get_excluded_countries(0.2, 40, TRUE)
+excluded_countries_dont_req_FIND_data<-get_excluded_countries(0.25, 40, FALSE)
 
