@@ -8,7 +8,7 @@
 library(janitor)
 library(tidyverse)
 library(dplyr)
-
+source("LoadCountries.R")
 
 
 calc_risk_raw <- function (p, n){
@@ -36,13 +36,13 @@ generate_map_assets <- function(ascertainment_bias = 4,
                                 risk_filter = 0,
                                 overwrite = TRUE,
                                 excluded_countries = NULL) {
-    #library(subregionalcovid19)
+    
     flagged_countries <- get_flagged_countries() %>% dplyr::pull(country) # not adding the corresponding metrics 
     GLOBALMAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
     GLOBALMAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
     GLOBALMAP$AB <- ascertainment_bias
     # Add a column for testing flag where TRUE = insufficient testing & need to explain, FALSE = sufficient testing
-    GLOBAL_MAP <- GLOBAL_MAP |>
+    GLOBALMAP <- GLOBALMAP |>
         mutate(testing_flag = 
                    ifelse(Country %in% flagged_countries, TRUE, FALSE))
     
@@ -126,8 +126,7 @@ generate_map_assets <- function(ascertainment_bias = 4,
     
     sf::st_write(
         sf::st_as_sf(GLOBALDATAWIDE),
-        glue::glue("{prefix}/GLOBALDATA.fc.{format}")
+        glue::glue("{prefix}/dailyPeerData.{format}")
     )
 }
-# Robel, can you add here where to save/send this data file? 
 data<-generate_map_assets()
