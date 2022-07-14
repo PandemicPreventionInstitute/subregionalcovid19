@@ -70,6 +70,7 @@ generate_map_assets <- function(ascertainment_bias = 4,
             ) %>% 
             dplyr::mutate(
                 # Expected number of event attendees arriving infected
+                # This is commented out, since the calc is happening on the PEER app frontend
                 # exp_introductions = (pInf*AB*size), # on the front end, will want to set 0 to <1,
                 # Cases per 100k in the past 14 days
                 cases_per_100k_past_14_d = round(pInf*(7/5)*1e5, 3) # need to multiple by 14/10 because to estimate case prevalence (pInf) 
@@ -84,7 +85,7 @@ generate_map_assets <- function(ascertainment_bias = 4,
     
     # Pivot data from long to wide so that there are columns for each event size
     GLOBALDATAWIDE <- GLOBALDATAALL %>% 
-        tidyr::pivot_wider(names_from = n, values_from = c(risk))
+      tidyr::pivot_wider(names_from = n, values_from = risk, names_prefix = 'risk_')
     
     # Unit test to make sure that all countries have estimates for risk regardless of event size
     stopifnot('Not all datasets are the same number of rows' = nrow(GLOBALDATAALL) == length_data*length(event_sizes))
@@ -92,7 +93,7 @@ generate_map_assets <- function(ascertainment_bias = 4,
     # Write output fgb file
     sf::st_write(
         sf::st_as_sf(GLOBALDATAWIDE),
-        glue::glue("{prefix}/globalDataDaily.{format}")
+        glue::glue("{prefix}/globalDataWide.{format}")
     )
 }
 data<-generate_map_assets()
