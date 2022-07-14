@@ -8,7 +8,7 @@
 library(janitor)
 library(tidyverse)
 library(dplyr)
-
+source('LoadCountries.R')
 
 
 calc_risk_raw <- function (p, n){
@@ -38,9 +38,9 @@ generate_map_assets <- function(ascertainment_bias = 4,
                                 excluded_countries = NULL) {
     #library(subregionalcovid19)
     flagged_countries <- get_flagged_countries() %>% dplyr::pull(country) # not adding the corresponding metrics 
-    GLOBALMAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
-    GLOBALMAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
-    GLOBALMAP$AB <- ascertainment_bias
+    GLOBAL_MAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
+    GLOBAL_MAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
+    GLOBAL_MAP$AB <- ascertainment_bias
     # Add a column for testing flag where TRUE = insufficient testing & need to explain, FALSE = sufficient testing
     GLOBAL_MAP <- GLOBAL_MAP |>
         mutate(testing_flag = 
