@@ -8,7 +8,8 @@
 library(janitor)
 library(tidyverse)
 library(dplyr)
-source('LoadCountries.R')
+
+source("LoadCountries.R")
 
 
 calc_risk_raw <- function (p, n){
@@ -36,13 +37,13 @@ generate_map_assets <- function(ascertainment_bias = 4,
                                 risk_filter = 0,
                                 overwrite = TRUE,
                                 excluded_countries = NULL) {
-    #library(subregionalcovid19)
+    
     flagged_countries <- get_flagged_countries() %>% dplyr::pull(country) # not adding the corresponding metrics 
     GLOBAL_MAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
     GLOBAL_MAP <- LoadCountries(countries = NULL, interactiveMode = FALSE)
     GLOBAL_MAP$AB <- ascertainment_bias
     # Add a column for testing flag where TRUE = insufficient testing & need to explain, FALSE = sufficient testing
-    GLOBAL_MAP <- GLOBAL_MAP |>
+    GLOBALMAP <- GLOBALMAP |>
         mutate(testing_flag = 
                    ifelse(Country %in% flagged_countries, TRUE, FALSE))
     
@@ -89,45 +90,10 @@ generate_map_assets <- function(ascertainment_bias = 4,
     # Unit test to make sure that all countries have estimates for risk regardless of event size
     stopifnot('Not all datasets are the same number of rows' = nrow(GLOBALDATAALL) == length_data*length(event_sizes))
     
-    
-    # filter(risk > risk_filter) |>
-    # mutate(
-    #   risk = case_when(
-    #     risk < 0 ~ 0,
-    #     TRUE ~ risk
-    #   ),
-    #   fillColor = case_when(
-    #     risk < 1 ~ "grey",
-    #     risk < 5 ~ "#fcc5c0",
-    #     risk < 25 ~ "#fa9fb5",
-    #     risk < 50 ~ "#f768a1",
-    #     risk < 75 ~ "#dd3497",
-    #     risk < 95 ~ "#ae017e",
-    #     risk >= 95 ~ "#7a0177"
-    #   )
-    # ) |>
-    # mutate(
-    #   label = glue::glue(
-    #     "<strong>Region: {RegionName}</strong><br/>",
-    #     # "Risk Score: {ifelse(risk == 0, 'Unknown', paste0(risk, '%'))}<br/><br/>",
-    #     "Map data refreshed on: {lubridate::today()}<br/>",
-    #     "Region last reported data on: {DateReport}"
-    #   )
-    # )
-    # relocate(geometry, .after = fillColor)
-    # if (overwrite) {
-    #   unlink(glue::glue("{prefix}/data_{size}.fc.{format}"))
-    # }
-    # 
-    # sf::st_write(
-    #   sf::st_as_sf(temp),
-    #   glue::glue("{prefix}/data_{size}.fc.{format}")
-    # )
-    
+    # Write output fgb file
     sf::st_write(
         sf::st_as_sf(GLOBALDATAWIDE),
-        glue::glue("{prefix}/GLOBALDATA.fc.{format}")
+        glue::glue("{prefix}/dailyPeerData.{format}")
     )
 }
-# Robel, can you add here where to save/send this data file? 
 data<-generate_map_assets()
