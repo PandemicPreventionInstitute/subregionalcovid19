@@ -8,7 +8,8 @@
 library(janitor)
 library(tidyverse)
 library(dplyr)
-source("LoadCountries.R")
+#source("LoadCountries.R")
+library(subregionalcovid19)
 
 
 calc_risk_raw <- function (p, n){
