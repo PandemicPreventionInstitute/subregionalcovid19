@@ -13,6 +13,7 @@
 #' }
 #' @seealso [LoadCountries()]
 #' @export
+# This is a test
 LoadAlgeria <- function() {
   pop_algeria <- NULL
   
