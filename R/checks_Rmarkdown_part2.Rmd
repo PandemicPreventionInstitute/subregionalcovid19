@@ -1,0 +1,57 @@
+---
+title: "checks_part2"
+output: html_document
+date: '2022-08-31'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+######## ALL CODE BELOW CANNOT BE RUN UNTIL WE'VE SAVED UP TO A WEEK OF PRIOR DATA
+
+# get data frames from prior week
+prior_week_dates=seq(current_date-7,current_date,by='1 day')### redo the above w/ yesterday's data
+all_countries_prior_weeks=rbind.data.frame(read_csv(paste0("all_countries_",prior_week_dates[1],".csv")),read_csv(paste0("all_countries_",prior_week_dates[2], ".csv")),read_csv(paste0("all_countries_", prior_week_dates[3], ".csv")),read_csv(paste0("all_countries_", prior_week_dates[4], ".csv")),
+read_csv(paste0("all_countries_", prior_week_dates[5], ".csv")),
+read_csv(paste0("all_countries_", prior_week_dates[6], ".csv")),
+read_csv(paste0("all_countries_", prior_week_dates[7], ".csv")),
+read_csv(paste0("all_countries_", prior_week_dates[8], ".csv")))
+
+# estimate cases/100k, as done in "get_daily_PEER_data.R" & summarize across all sub-areas within a country
+all_countries_summarized=all_countries_prior_weeks%>%
+  mutate(cases_per_100k_past_14_d = round(pInf*(7/5)*1e5, 3))%>%
+  group_by(Country,DateReport)%>%
+  summarise(summed_cases_per_100k_past_14_d=sum(cases_per_100k_past_14_d))
+
+```
+
+
+```{r, echo=FALSE}
+# plot cases per 100 k rolling average for the past week in countries of interest
+## specify countries of interest
+countries_of_interest=c()
+all_countries_summarized_filtered=all_countries_summarized%>%
+  filter(Country%in%countries_of_interest)
+
+ggplot(all_countries_summarized_filtered,
+       aes(x=DateReport,y=summed_cases_per_100k_past_14_d,group=Country,col=Country))+geom_line()
+
+```
+
+```{r}
+# smoothness checks of cases per 100 k rolling average for the past week in countries of interest
+# ideas for metrics from: https://stats.stackexchange.com/questions/24607/how-to-measure-smoothness-of-a-time-series-in-r
+smoothness_metrics=all_countries_summarized_filtered%>%
+  group_by(Country)%>%
+  mutate(lag_one_autocorrelation=acf(summed_cases_per_100k_past_14_d,lag.max=1,plot=FALSE)[[1]][2])%>%
+  mutate(coef_variation=sd(diff(summed_cases_per_100k_past_14_d))/abs(mean(diff(summed_cases_per_100k_past_14_d))))
+
+# identify outliers using forecast package (outliers defined as upper quartile + 3*IQR and lower quartile - 3*IQR )
+all_countries_summarized_filtered_outliers=all_countries_summarized_filtered%>%
+  group_by(Country)%>%
+  mutate(outlier_index=ifelse(is.na(tsoutliers(xts(summed_cases_per_100k_past_14_d,DateReport))$index)==TRUE,'none',
+                              tsoutliers(xts(summed_cases_per_100k_past_14_d,DateReport))$index))
+```
+
