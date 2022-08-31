@@ -1,0 +1,256 @@
+---
+title: "checks"
+output:
+  html_document: default
+date: '2022-08-25'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE,message=FALSE)
+```
+
+
+```{r, warning=FALSE}
+### ALL DATA LOADING & PRE-PROCESSING
+# read in all necessary libraries
+library(subregionalcovid19)
+library(tidyverse)
+library(lubridate)
+library(xts)
+library(forecast)
+library(htmltools)
+
+# set up an empty data frame to store all the countries w/ error flags and specify what these flags are
+countries_error_flags_df=data.frame(matrix(ncol=3,nrow=0))
+colnames(countries_error_flags_df)=c("Country","Flag","PriorDayComparison")
+
+# extract today's date
+current_date=today()
+
+# read in all country data using LoadCountries() function
+all_countries=as_tibble(LoadCountries())%>%
+  select(-geoid,-geometry)
+
+# ensure all country names align w/ how they are represented in the country-specific load functions
+all_countries_2=all_countries%>%
+  mutate(Country=ifelse(Country=='United Kingdom','UK',
+                        ifelse(Country=='United States','US',
+                        ifelse(Country=='Switzerland','SwitzerlandLiechtenstein',
+                        ifelse(Country=='Liechtenstein','SwitzerlandLiechtenstein',Country)))))
+
+# save today's data for subsequent comparisons
+all_countries_to_save=all_countries_2%>%
+  select(DateReport,Country,pInf)
+write.csv(all_countries_to_save,paste0("all_countries_", current_date, ".csv"),row.names=F)
+
+```
+
+```{r}
+# identify and count the number of unique countries in the data frame
+# all_countries_list can serve as a reference list of countries to look out for 
+all_countries_list=unique(all_countries_2$Country)
+num_unique_countries=length(all_countries_list)
+print(paste0("Number of unique countries: ",num_unique_countries))
+```
+
+```{r}
+# identify the last date of report for each country & sub-region
+date_last_report_country_df=all_countries%>%
+  select(DateReport,Country)%>%
+  group_by(Country)%>%
+  summarise(date_last_reported=max(DateReport))
+write.csv(date_last_report_country_df,paste0("date_last_report_country_df_", current_date, ".csv"),row.names=F)
+
+date_last_report_subregion_df=all_countries%>%
+  select(DateReport,Country,RegionName)%>%
+  group_by(Country,RegionName)%>%
+  summarise(date_last_reported=max(DateReport))
+write.csv(date_last_report_subregion_df,paste0("date_last_report_subregion_df_", current_date, ".csv"),row.names=F)
+```
+
+```{r}
+# identify the countries with last date of report more than five days prior to the current day 
+countries_last_report_flag=date_last_report_country_df%>%
+  mutate(date_last_reported=strptime(date_last_reported,format='%Y-%m-%d'))%>%
+  mutate(days_since_last_report=difftime(current_date,date_last_reported,units='days'))%>%
+  mutate(days_since_last_report_rounded=round(as.numeric(days_since_last_report)))%>%
+  filter(days_since_last_report_rounded>5)%>%
+  select(Country)
+
+if(length(countries_last_report_flag$Country)>0){
+  cat("Countries with last date of report more than 5 days ago: ",countries_last_report_flag$Country, sep='\n')} else{
+    print("No countries with last date of report more than 5 days ago")
+  }
+
+## add list of these countries & the corresponding flag to countries & errors data frame
+if(length(countries_last_report_flag)!=0){
+  countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=countries_last_report_flag,Flag='Date of last report more than five days prior',PriorDayComparison=NA)) 
+} else {
+  countries_error_flags_df=countries_error_flags_df}
+```
+
+
+
+
+```{r}
+# read in yesterday's data for subsequent comparisons
+yesterday_data=read_csv(paste0("all_countries_", current_date-1, ".csv"))
+all_countries_list_yesterday=unique(yesterday_data$Country)
+
+```
+
+
+```{r}
+# identify countries with no case reporting
+case_reporting_zero=all_countries_to_save%>%
+  group_by(Country)%>%
+  filter(max(pInf)==0)
+all_countries_reporting_zero=unique(case_reporting_zero$Country)
+
+## determine if countries reporting zero cases yesterday are also reporting zero cases today
+case_reporting_zero_yesterday=yesterday_data%>%
+  group_by(Country)%>%
+  filter(max(pInf)==0)
+all_countries_reporting_zero_yesterday=unique(case_reporting_zero_yesterday$Country)
+
+intersect_all_countries_reporting_zero=intersect(all_countries_reporting_zero,
+                                                 all_countries_reporting_zero_yesterday)
+all_countries_reporting_zero_change=ifelse(all_countries_reporting_zero%in%intersect_all_countries_reporting_zero,"same","new")
+
+## add list of these countries & the corresponding flag to countries & errors data frame
+if(length(all_countries_reporting_zero)!=0){
+  countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=all_countries_reporting_zero,Flag='Zero case reporting',PriorDayComparison=all_countries_reporting_zero_change))
+} else{
+  countries_error_flags_df=countries_error_flags_df}
+
+if(length(all_countries_reporting_zero)>0){
+cat("Countries with zero case reporting: ",all_countries_reporting_zero, sep='\n')} else{
+  print("No country with zero case reporting")
+}
+```
+
+```{r}
+# identify countries missing from the LoadCountries() output
+
+## identify countries with country-specific load functions
+### note need to set up a separate folder within R that contains all the LoadCountryFunctions, from which to read file names
+setwd("./PEER_explorations/LoadCountryFunctions")
+
+list_load_country_functions=list.files()
+countries=gsub("Load","",list_load_country_functions)
+final_countries_load_each=gsub(".R","",countries)
+## identify which (if any) of these countries is missing from the df generated upon running LoadCountries()
+missing_countries_load_countries=final_countries_load_each[which(final_countries_load_each%in%all_countries_list==FALSE)]
+
+if(length(missing_countries_load_countries)>0){
+  cat("Countries w/ country-specific load functions missing from today's data: ",missing_countries_load_countries,sep='\n') } else { print ("No countries w/ country-specific load functions missing from today's data")}
+
+## repeat for yesterday's data
+all_countries_list_yesterday=unique(yesterday_data$Country)
+missing_countries_load_countries_yesterday=final_countries_load_each[which(final_countries_load_each%in%all_countries_list_yesterday==FALSE)]
+
+## determine if countries missing yesterday are also missing today
+intersect_missing_countries_load_countries=intersect(missing_countries_load_countries,
+                                                     missing_countries_load_countries_yesterday)
+missing_countries_load_countries_change=ifelse(missing_countries_load_countries%in%intersect_missing_countries_load_countries,"same","new")
+
+## add list of these countries & the corresponding flag to countries & errors data frame
+if(length(missing_countries_load_countries)!=0){
+ countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=missing_countries_load_countries,Flag='Country-specific Load function did not run',PriorDayComparison=missing_countries_load_countries_change))
+} else{
+  countries_error_flags_df=countries_error_flags_df}
+
+```
+
+```{r}
+## load in all Europe data
+Europe=LoadEurope()
+write.csv(Europe,paste0("Europe_", current_date, ".csv"),row.names=F)
+### count the number of countries included in the LoadEurope() output
+countries_europe=unique(Europe$Country)
+### identify European countries w/out country-specific load functions, which are included in LoadEurope()
+european_countries_second_list=countries_europe[which(countries_europe%in%final_countries_load_each==FALSE)]
+### identify which (if any) of these countries is missing from the df generated upon running LoadCountries()
+missing_countries_Europe2=european_countries_second_list[which(european_countries_second_list%in%all_countries_list==FALSE)]
+if(length(missing_countries_Europe2)>0){
+  cat("Countries w/out country-specific load functions, but included in LoadEurope() output missing from today's data: ",missing_countries_Europe2,sep='\n')} else {print("No countries w/out country-specific load functions but included in LoadEurope() output missing from today's data")}
+
+### repeat for yesterday's data
+Europe_yesterday=read_csv(paste0("Europe_", current_date-1, ".csv"))
+countries_europe_yesterday=unique(Europe_yesterday$Country)
+european_countries_second_list_yesterday=countries_europe_yesterday[which(countries_europe_yesterday%in%final_countries_load_each==FALSE)]
+missing_countries_Europe2_yesterday=european_countries_second_list_yesterday[which(european_countries_second_list_yesterday%in%all_countries_list_yesterday==FALSE)]
+
+### determine if countries missing yesterday are also missing today
+intersect_missing_countries_Europe2=intersect(missing_countries_Europe2,
+                                              missing_countries_Europe2_yesterday)
+missing_countries_Europe2_change=ifelse(missing_countries_Europe2%in%intersect_missing_countries_Europe2,"same","new")
+
+### add list of these countries & the corresponding flag to countries & errors data frame
+if(length(missing_countries_Europe2)!=0){
+  countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=missing_countries_Europe2,Flag='Failed to produce output within LoadEurope() function (among those w/out a country-specific Load function)' ,PriorDayComparison=missing_countries_Europe2_change))
+} else {
+  countries_error_flags_df=countries_error_flags_df }
+
+```
+
+```{r}
+## Load in all Google sourced data
+GoogleSourced=LoadGoogleSourced()
+write.csv(GoogleSourced,paste0("GoogleSourced_", current_date, ".csv"),row.names=F)
+countries_google_sourced=unique(GoogleSourced$Country)
+### identify which (if any) of these countries is missing from the df generated upon running LoadCountries()
+missing_countries_google_sourced=countries_google_sourced[which(countries_google_sourced%in%all_countries_list==FALSE)]
+if(length(missing_countries_google_sourced)>0){
+  cat("Countries included in GoogleSourced output missing from today's data: ",missing_countries_google_sourced,sep='\n')} else{print("No countries included in GoogleSourced output missing from today's data")}
+
+### repeat for yesterday's data
+GoogleSourced_yesterday=read_csv(paste0("GoogleSourced_", current_date-1, ".csv"))
+countries_google_sourced_yesterday=unique(GoogleSourced_yesterday$Country)
+missing_countries_google_sourced_yesterday=countries_google_sourced_yesterday[which(countries_google_sourced_yesterday%in%all_countries_list_yesterday==FALSE)]
+
+## determine if countries missing yesterday are also missing today
+intersect_missing_countries_google_sourced=intersect(missing_countries_google_sourced,
+                                                     missing_countries_google_sourced_yesterday)
+missing_countries_google_sourced_change=ifelse(missing_countries_google_sourced%in%intersect_missing_countries_google_sourced,"same","new")
+
+### add list of these countries & the corresponding flag to countries & errors data frame
+if(length(missing_countries_google_sourced)!=0){
+  countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=missing_countries_google_sourced,Flag='Failed to produce output within LoadGoogleSourced() function' ,PriorDayComparison=missing_countries_google_sourced_change))
+} else{
+  countries_error_flags_df=countries_error_flags_df
+}
+```
+
+```{r}
+## Load in all JHU data
+JHUCSSE=LoadJHUCSSE()
+write.csv(JHUCSSE,paste0("JHUCSSE_", current_date, ".csv"),row.names=F)
+countries_JHUCSSE=unique(JHUCSSE$Country)
+### identify which (if any) of these countries is missing from the df generated upon running LoadCountries()
+missing_countries_JHUCSSE=countries_JHUCSSE[which(countries_JHUCSSE%in%all_countries_list==FALSE)]
+if(length(missing_countries_JHUCSSE)>0){
+  cat("Countries included in JHUCSSE output missing from today's data: ",missing_countries_JHUCSSE,sep='\n')} else{"No countries included in JHUCSSE output missing from today's data"}
+
+### repeat for yesterday's data
+JHUCSSE_yesterday=read_csv(paste0("JHUCSSE_", current_date-1, ".csv"))
+countries_JHUCSSE_yesterday=unique(JHUCSSE$Country)
+missing_countries_JHUCSSE_yesterday=countries_JHUCSSE_yesterday[which(countries_JHUCSSE_yesterday%in%all_countries_list_yesterday==FALSE)]
+
+## determine if countries missing yesterday are also missing today
+intersect_missing_countries_JHUCSSE=intersect(missing_countries_JHUCSSE,
+                                                     missing_countries_JHUCSSE_yesterday)
+missing_countries_JHUCSSE_change=ifelse(missing_countries_JHUCSSE%in%intersect_missing_countries_JHUCSSE,"same","new")
+
+### add list of these countries & the corresponding flag to countries & errors data frame
+if(length(missing_countries_JHUCSSE)!=0){
+   countries_error_flags_df=rbind.data.frame(countries_error_flags_df,cbind.data.frame(Country=missing_countries_JHUCSSE,Flag='Failed to produce output within LoadJHUCSSE() function' ,PriorDayComparison=missing_countries_JHUCSSE_change))
+} else{
+  countries_error_flags_df=countries_error_flags_df
+}
+```
+
+
+```{r}
+write.csv(countries_error_flags_df,"countries_error_flags_df.csv")
+```
