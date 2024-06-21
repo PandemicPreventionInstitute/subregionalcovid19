@@ -24,9 +24,6 @@ dataQueryUK <- function(date) {
       )
       dmod <- dmod + 1
     }
-    if (date != cur_date) {
-      cat("\nnew cur_date:", as.character(cur_date), "\n")
-    }
   }
 
   # Convert response from binary to JSON:
@@ -38,7 +35,7 @@ dataQueryUK <- function(date) {
 
 #' LoadUK
 #'
-#' @description Reads in subnational data for the United Kingdom to calculate most recent estimate of per capita active COVID-19 cases.
+#' @description Reads in subnational data for the United Kingdom to calculate most recent estimate of per capita active COVID-19 cases. Use with LoadData() is recommended.
 #'
 #' @note
 #' The COVID-19 data is from the UK API from Public Health England and NHSX: \url{https://coronavirus.data.gov.uk}.
@@ -49,20 +46,38 @@ dataQueryUK <- function(date) {
 #' \dontrun{
 #' UK <- LoadUK()
 #' }
-#' @seealso [LoadCountries()]
+#' @seealso [LoadData()]
 #' @export
 LoadUK <- function() {
   # The COVID-19 data is from the UK API from Public Health England and NHSX: https://coronavirus.data.gov.uk
-
+  geomUnitedKingdom <- pop_uk <- misc_uk <- NULL
   utils::data("geomUnitedKingdom", envir = environment())
   utils::data("pop_uk", envir = environment())
   utils::data("misc_uk", envir = environment())
+  
+  geomUnitedKingdom <- sf::st_as_sf(geomUnitedKingdom)
 
   cur_date <- lubridate::today()
 
   data_cur <- dataQueryUK(cur_date)
   past_date <- cur_date - 14
   data_past <- dataQueryUK(past_date)
+
+
+  if (nrow(data_cur) < 180) { # likely does not include Scotland and Wales due to differences in update timing.
+    cur_date_sep <- lubridate::floor_date(data_cur$date[1], "week") + 3 - 7 # try using data from the previous Wednesday
+    data_cur_sep <- dataQueryUK(cur_date_sep)
+    past_date_sep <- cur_date_sep - 14
+    data_past_sep <- dataQueryUK(past_date_sep)
+
+    CODES <- which(!(data_cur_sep$code %in% data_cur$code))
+    if (length(CODES) > 0) { # if there are regions to add
+      data_cur <- rbind(data_cur, data_cur_sep[CODES, ])
+      CODES_past_o <- which(data_past$code %in% data_cur_sep$code[CODES])
+      CODES_past_n <- which(data_past_sep$code %in% data_cur_sep$code[CODES])
+      data_past <- rbind(data_past[-CODES_past_o, ], data_past_sep[CODES_past_n, ])
+    }
+  }
 
   # population
   # pop <- read.csv("https://raw.githubusercontent.com/appliedbinf/covid19-event-risk-planner/master/COVID19-Event-Risk-Planner/map_data/uk_pop.csv", stringsAsFactors = FALSE) %>% select(-c("name"))

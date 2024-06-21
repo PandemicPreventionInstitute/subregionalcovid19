@@ -1,6 +1,6 @@
 #' LoadGermany
 #'
-#' @description Reads in subnational data for Germany to calculate most recent estimate of per capita active COVID-19 cases.
+#' @description Reads in subnational data for Germany to calculate most recent estimate of per capita active COVID-19 cases. Use with LoadData() is recommended.
 #'
 #' @note
 #' COVID-19 case data for Germany is from the Robert Koch-Institut and the Bundesamt für Kartographie und Geodäsie: \url{https://npgeo-corona-npgeo-de.hub.arcgis.com/} \url{https://npgeo-corona-npgeo-de.hub.arcgis.com/datasets/dd4580c810204019a7b8eb3e0b329dd6_0/about}.
@@ -11,7 +11,7 @@
 #' \dontrun{
 #' Germany <- LoadGermany()
 #' }
-#' @seealso [LoadCountries()]
+#' @seealso [LoadData()]
 #' @export
 LoadGermany <- function() {
   Landkreis <- AnzahlFall <- Meldedatum <- IdLandkreis <- Date <- Region <- Cases <- latestDate <- CumSum <- pastDate <- difference <- NULL
@@ -41,7 +41,7 @@ LoadGermany <- function() {
   ) # None of these are  spatial data, so it doesn't make sense to use geojsons.
   germanyData <- purrr::map_df(
     links,
-    ~ vroom::vroom(.x) %>%
+    ~ vroom::vroom(.x, show_col_types = FALSE, progress = FALSE) %>%
       dplyr::select(Region = Landkreis, Cases = AnzahlFall, Date = Meldedatum, IdLandkreis)
   )
   germanyData <- germanyData %>%
@@ -69,7 +69,7 @@ LoadGermany <- function() {
     )
 
   ## pop_germany: https://www.citypopulation.de/en/germany/admin/
-  
+
 
   # SK Eisenach (16056) is reported with LK Wartburgkreis (16063) (according to RKI)
   pop_germany$Population[which(pop_germany$IdLandkreis == "16063")] <- pop_germany$Population[which(pop_germany$IdLandkreis == "16056")] + pop_germany$Population[which(pop_germany$IdLandkreis == "16063")]

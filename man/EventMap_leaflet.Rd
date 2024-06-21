@@ -4,12 +4,14 @@
 \alias{EventMap_leaflet}
 \title{EventMap_leaflet}
 \usage{
-EventMap_leaflet(DATA, G, boundaryweights = 0.05)
+EventMap_leaflet(DATA, G, AB, boundaryweights = 0.05)
 }
 \arguments{
 \item{DATA}{Data containing prevalence information to map.}
 
 \item{G}{Event size to compute risk for.}
+
+\item{AB}{Case ascertainment bias to compute risk for.}
 
 \item{boundaryweights}{Weight assigned to the maps boundary edges.}
 }
@@ -17,16 +19,13 @@ EventMap_leaflet(DATA, G, boundaryweights = 0.05)
 Outputs an interactive leaflet map displaying exposure risk for the input data.
 }
 \description{
-EventMap_leaflet
-}
-\note{
-Requires an estimate of ascertainment bias stored as column AB in the DATA object, created through use of a LoadCountry function.
+Creates an interactive Leaflet map displaying exposure risk for the input data.
 }
 \examples{
 \dontrun{
-Austria <- LoadAustria()
+Austria <- LoadData("LoadAustria")
 Austria$AB <- 4
-EventMap_leaflet(Austria, 50)
+EventMap_leaflet(Austria, 50, Austria$AB)
 }
 }
 \seealso{

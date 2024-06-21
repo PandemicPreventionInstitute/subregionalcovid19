@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^subregionalcovid19\.Rproj$
+^data-raw$
+^paper$
+^DataSources.md$
+
+

@@ -7,6 +7,7 @@
 EventMap_tmap(
   DATA,
   G,
+  AB,
   boundaryweights = 0.05,
   projectionCRS = "+proj=eqearth",
   maptitle = NA
@@ -16,6 +17,8 @@ EventMap_tmap(
 \item{DATA}{Data containing prevalence information to map.}
 
 \item{G}{Event size to compute risk for.}
+
+\item{AB}{Case ascertainment bias to compute risk for.}
 
 \item{boundaryweights}{Weight assigned to the maps boundary edges.}
 
@@ -27,16 +30,13 @@ EventMap_tmap(
 Outputs a tmap displaying exposure risk for the input data.
 }
 \description{
-EventMap_tmap
-}
-\note{
-Requires an estimate of ascertainment bias stored as column AB in the DATA object, created through use of a LoadCountry function.
+Creates a tmap map displaying active cases per 'people' for the input data.
 }
 \examples{
 \dontrun{
-Austria <- LoadAustria()
+Austria <- LoadData("LoadAustria")
 Austria$AB <- 4
-EventMap_tmap(Austria, 50)
+EventMap_tmap(Austria, 50, Austria$AB)
 }
 }
 \seealso{

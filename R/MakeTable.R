@@ -1,5 +1,7 @@
 #' Calculate Risk
 #'
+#' @description Calculates the percentage probability that one or more persons in a group, of a particular size g, may be infectious given the underlying prevalence of disease.
+#'
 #' @param p_I Probability one individual in a population is infectious.
 #' @param g Event size.
 #'
@@ -7,22 +9,24 @@
 #' @export
 #' @seealso [estRisk()]
 #' @examples
-#' \dontrun{
-#' risk <- calcrisk(.001, 50)
-#' }
+#' risk <- calcRisk(.001, 50)
 #'
-calc_risk <- function(p_I, g) {
+calcRisk <- function(p_I, g) {
+  stopifnot("`g` must be a positive value." = is.numeric(g) & g>0)
+
   r <- 1 - (1 - p_I)**g
-  return(round(r * 100, 1))
+  return(r * 100)
 }
 
 #' Create Table of Risk Estimates
+#'
+#' @description Creates a table showing the estimated risk that one or more people will be infectious for the given input locations, event sizes and ascertainment biases.
 #'
 #' @param df_in Input data.
 #' @param risk_output Name of output file.
 #' @param output_prefix Folder location to store table file.
 #' @param event_size Event size(s) to calculate risk for.
-#' @param asc_bias_list Ascertainment bias(es) to calculate risk for.
+#' @param asc_bias_list Ascertainment bias(es) to calculate risk for, must be named.
 #'
 #' @return Creates, and writes to file, a table showing estimated risk that one or more people will be infectious for the given input locations, event sizes and ascertainment biases.
 #' @export
@@ -31,14 +35,14 @@ calc_risk <- function(p_I, g) {
 #'
 #' @examples
 #' \dontrun{
-#' Canada <- LoadCanada()
+#' Canada <- LoadData("LoadCanada")
 #' create_c19r_data(Canada)
 #' }
 create_c19r_data <- function(df_in,
                              risk_output = sprintf("world_risk_regions_%s.csv", stringr::str_replace_all(lubridate::today(), "-", "")),
                              output_prefix = ".",
                              event_size = c(10, 15, 20, 25, 50, 100, 500, 1000, 5000),
-                             asc_bias_list = c(3, 4, 5)) {
+                             asc_bias_list = cbind(AB1 = 3, AB2 = 4, AB3 = 5)) {
   if (!all(is.numeric(event_size)) & !all(event_size > 0)) {
     stop("'event_size' must be a vector of positive numbers")
   }
@@ -58,32 +62,40 @@ create_c19r_data <- function(df_in,
 
   risk_data <- list()
 
-  for (asc_bias in asc_bias_list) {
+
+  # bind the ascertainment bias list
+  df_in <- cbind(df_in, asc_bias_list)
+  CN <- colnames(asc_bias_list)
+  asc_bias_list <- as.matrix(df_in[, (ncol(df_in) - ncol(as.matrix(asc_bias_list)) + 1):ncol(df_in)])
+  colnames(asc_bias_list) <- CN
+
+  for (aa in 1:ncol(asc_bias_list)) {
+    AB <- asc_bias_list[, aa]
     data_Nr <- df_in %>%
-      dplyr::mutate(Nr = pInf * asc_bias)
+      dplyr::mutate(Nr = pInf * AB)
 
     for (size in event_size) {
-      cn <- glue::glue("{asc_bias}_{size}")
+      cn <- glue::glue("{colnames(asc_bias_list)[aa]}_{size}")
 
       riskdt <- data_Nr %>%
         dplyr::mutate(
-          risk = round(calc_risk(
+          risk = round(calcRisk(
             Nr, size
           ), 0),
           risk = dplyr::case_when(
             risk < 1 ~ 0,
             TRUE ~ risk
           ),
-          "asc_bias" = asc_bias,
+          "asc_bias" = aa,
           "event_size" = size
         )
       risk_data[[cn]] <- riskdt %>%
         dplyr::select(geoid, "{cn}" := risk)
-      id <- paste(asc_bias, size, sep = "_")
+      id <- paste(colnames(asc_bias_list)[aa], size, sep = "_")
     }
   }
 
-  risk_data_df <- purrr::reduce(.x = append(list(df_in), risk_data), .f = dplyr::left_join) %>%
+  risk_data_df <- purrr::reduce(.x = append(list(df_in), risk_data), .f = dplyr::left_join, by = "geoid") %>%
     dplyr::mutate(updated = lubridate::ymd(gsub("-", "", Sys.Date())))
 
   utils::write.csv(risk_data_df,

@@ -1,25 +1,23 @@
 #' LoadAustralia
 #'
-#' @description Reads in subnational data for Australia to calculate most recent estimate of per capita active COVID-19 cases.
+#' @description Reads in subnational data for Australia to calculate most recent estimate of per capita active COVID-19 cases. Use with LoadData() is recommended.
 #'
 #' @note
 #' Data was obtained from \url{https://github.com/M3IT/COVID-19_Data} and aggregated by www.covid19data.com.au from local health resources.
 #'
 #' @examples
-#' \dontrun{
 #' Australia <- LoadAustralia()
-#' }
-#' @seealso [LoadCountries]
+#' @seealso [LoadData()]
 #' @export
 LoadAustralia <- function() {
-  #Load in geomtry and population data
+  # Load in geomtry and population data
   pop_australia <- NULL
   utils::data("geomAustralia", envir = environment())
   utils::data("pop_australia", envir = environment())
   geomAustralia <- sf::st_as_sf(geomAustralia)
-  
-  #COVID-19 data was obtained from https://github.com/M3IT/COVID-19_Data and aggregated by www.covid19data.com.au from local health resources.
-  data <- vroom::vroom("https://raw.githubusercontent.com/M3IT/COVID-19_Data/master/Data/COVID_AU_state_cumulative.csv")
+
+  # COVID-19 data was obtained from https://github.com/M3IT/COVID-19_Data and aggregated by www.covid19data.com.au from local health resources.
+  data <- vroom::vroom("https://raw.githubusercontent.com/M3IT/COVID-19_Data/master/Data/COVID_AU_state_cumulative.csv", show_col_types = FALSE, progress = FALSE)
 
   data$date <- as.Date(data$date)
   data <- data[rev(order(data$date)), c("date", "state", "confirmed")]

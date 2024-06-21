@@ -1,6 +1,6 @@
 #' LoadUS
 #'
-#' @description Reads in subnational data for the United States to calculate most recent estimate of per capita active COVID-19 cases.
+#' @description Reads in subnational data for the United States to calculate most recent estimate of per capita active COVID-19 cases. Use with LoadData() is recommended.
 #'
 #' @note
 #' Real-time county level COVID19 data comes from the NYTimes COVID19 data project: \url{https://github.com/nytimes/covid-19-data}.
@@ -9,15 +9,13 @@
 #' @return A simple feature returning the date of most recent data (DateReport), a unique region code (geoid), the region name (RegionName) and country name (Country), the number of active cases per capita (pInf) and the regions geometry (geometry).
 #'
 #' @examples
-#' \dontrun{
 #' US <- LoadUS()
-#' }
-#' @seealso [LoadCountries()]
+#' @seealso [LoadData()]
 #' @export
 LoadUS <- function() {
   micro_code <- fips <- cases <- deaths <- date_past <- pop_usa <- NULL
 
-  #Load in geometry and population data 
+  # Load in geometry and population data
   utils::data("geomUnitedStates", envir = environment())
   utils::data("pop_usa", envir = environment())
   geomUnitedStates <- sf::st_as_sf(geomUnitedStates)
@@ -26,10 +24,10 @@ LoadUS <- function() {
   # US 2019 population estimate data comes from the US Census: https://www.census.gov/data/tables/time-series/demo/popest/2010s-state-total.html
 
   # cases from NYT
-  #dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv" #Note deprecated as of May 13th 2022.
-  dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties-recent.csv" #contains 30 days of most recent data.
+  # dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv" #Note deprecated as of May 13th 2022.
+  dataurl <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties-recent.csv" # contains 30 days of most recent data.
   # data <- read.csv(dataurl, stringsAsFactors = FALSE) %>% mutate(date = as_date(date))
-  data <- vroom::vroom(dataurl, col_types = c(date = "D"))
+  data <- vroom::vroom(dataurl, col_types = c(date = "D"), show_col_types = FALSE, progress = FALSE)
   # geography
   # county <<- st_read("https://raw.githubusercontent.com/appliedbinf/covid19-event-risk-planner/master/COVID19-Event-Risk-Planner/map_data/tl_2017_us_county.geojson")
   # merge counties that are reported together by the NYT

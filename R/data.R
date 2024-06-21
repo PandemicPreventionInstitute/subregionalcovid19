@@ -1,3 +1,6 @@
+#' alt_countrylist
+"alt_countrylist"
+
 #' countrylist
 "countrylist"
 
@@ -58,8 +61,14 @@
 #' geomGhana
 "geomGhana"
 
+#' geomGlobal
+"geomGlobal"
+
 #' geomGlobal_simplified
 "geomGlobal_simplified"
+
+#' geomHaiti
+"geomHaiti"
 
 #' geomIndia
 "geomIndia"
@@ -99,6 +108,9 @@
 
 #' geomOman
 "geomOman"
+
+#' geomPakistan
+"geomPakistan"
 
 #' geomPeru
 "geomPeru"
@@ -148,6 +160,9 @@
 #' geomZimbabwe
 "geomZimbabwe"
 
+#' m49
+"m49"
+
 #' misc_argentina
 "misc_argentina"
 
@@ -183,6 +198,9 @@
 
 #' misc_vietnam
 "misc_vietnam"
+
+#' miscPakistan
+"miscPakistan"
 
 #' names_belgium
 "names_belgium"
